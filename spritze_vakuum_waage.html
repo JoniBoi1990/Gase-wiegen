@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vakuum-Spritze auf der Waage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0a0e1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem 1.5rem;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1160px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3rem;
+    }
+
+    .header p {
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    /* Main 2-Column Layout */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 410px 1fr;
+      gap: 1.75rem;
+      align-items: stretch;
+    }
+
+    /* SVG Scene (Left Column) */
+    .scene-card {
+      background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+      border: 1px solid #1e293b;
+      border-radius: 1.25rem;
+      padding: 1rem 0.75rem;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .scene-card::before {
+      content: '';
+      position: absolute;
+      top: -80px;
+      right: -60px;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .scene-svg {
+      width: 100%;
+      max-width: 410px;
+      max-height: min(650px, calc(100vh - 120px));
+      height: auto;
+      display: block;
+      touch-action: none; /* prevent scroll on touch drag */
+    }
+
+    /* Draggable handle */
+    #dragZone {
+      cursor: grab;
+    }
+
+    #dragZone:active {
+      cursor: grabbing;
+    }
+
+    .scene-card.dragging {
+      cursor: grabbing;
+    }
+
+    /* Side Panel (Right Column) */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+      justify-content: space-between;
+    }
+
+    /* Scale Display */
+    .scale-display {
+      background: linear-gradient(180deg, #18231c 0%, #0d1410 100%);
+      border: 1px solid #1e293b;
+      border-radius: 1.15rem;
+      padding: 1.25rem 1.5rem;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.85), 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .scale-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+
+    .scale-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .scale-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .tare-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem 0.85rem;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tare-btn:hover {
+      background: #334155;
+      color: #e2e8f0;
+    }
+
+    .tare-btn.active {
+      background: #164e63;
+      color: #22d3ee;
+      border-color: #155e75;
+    }
+
+    .scale-mass {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0.5rem;
+    }
+
+    .scale-mass-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(2.8rem, 4vw, 3.5rem);
+      font-weight: 700;
+      color: #fbbf24;
+      text-shadow: 0 0 16px rgba(251, 191, 36, 0.5), 0 0 32px rgba(251, 191, 36, 0.2);
+      letter-spacing: -0.02em;
+      transition: color 0.3s;
+    }
+
+    .scale-mass-value.tared {
+      color: #22d3ee;
+      text-shadow: 0 0 16px rgba(34, 211, 238, 0.5), 0 0 32px rgba(34, 211, 238, 0.2);
+    }
+
+    .scale-mass-unit {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fbbf24;
+      opacity: 0.85;
+      transition: color 0.3s;
+    }
+
+    .scale-mass-unit.tared {
+      color: #22d3ee;
+    }
+
+    /* Metrics Grid (4 items) */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #1a2332;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid #1e293b;
+      border-radius: 0.65rem;
+      padding: 0.55rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .metric-label {
+      font-size: 0.68rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #38bdf8;
+      font-size: 0.95rem;
+    }
+
+    /* Explanation Box */
+    .explanation {
+      background: linear-gradient(135deg, #0c1a2e 0%, #111827 100%);
+      border: 1px solid #1e3a5f;
+      border-radius: 1.15rem;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .explanation h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .explanation h2 .icon {
+      font-size: 1.2rem;
+    }
+
+    .explanation p {
+      font-size: 0.86rem;
+      color: #94a3b8;
+      line-height: 1.65;
+    }
+
+    .explanation strong {
+      color: #e2e8f0;
+    }
+
+    .explanation .highlight {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .explanation .highlight-red {
+      color: #f87171;
+      font-weight: 600;
+    }
+
+    /* Formula & Live Status Box */
+    .formula-box {
+      margin-top: 0.85rem;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid #1e3a5f;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .formula-math {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.86rem;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .formula-live {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px dashed #1e3a5f;
+      padding-top: 0.35rem;
+      margin-top: 0.2rem;
+    }
+
+    /* Conditions badge */
+    .conditions {
+      text-align: center;
+      font-size: 0.72rem;
+      color: #475569;
+      padding: 0.3rem 0;
+      border-radius: 0.5rem;
+      background: rgba(15, 23, 42, 0.35);
+      border: 1px solid #1e293b;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .main-layout {
+        grid-template-columns: 360px 1fr;
+        gap: 1.25rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        justify-content: flex-start;
+        padding: 1rem 0.75rem;
+      }
+
+      .main-layout {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .scene-card {
+        max-width: 380px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .scene-svg {
+        max-height: 55vh;
+      }
+
+      .metrics-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Vakuum-Spritze auf der Waage</h1>
+      <p>Stempel herausziehen → Vakuum erzeugen → Masse beobachten</p>
+    </div>
+
+    <!-- Main 2-column layout: Syringe left, Scale & Info right -->
+    <div class="main-layout">
+
+      <!-- SVG Scene: Vertical Syringe on Scale -->
+      <div class="scene-card">
+      <!--
+        GEOMETRY PLAN (vertical syringe, spitze unten, stempel oben):
+        ============================================================
+        ViewBox: 0 0 380 540
+        
+        Syringe center X = 190
+        Barrel inner: x=165..215 (width=50)
+        Barrel outer: x=163..217 (with 2px stroke)
+        Barrel top Y (inside) = 100    ← piston travels UP to here (120 ml)
+        Barrel bottom Y (inside) = 400 ← piston sits here at 0 ml
+        
+        Barrel cone: from barrel bottom (400) tapering to tip (420)
+        Tip nozzle:  y=420..435
+        Seal cap:    y=435..450
+        
+        Flange (finger grip): y=92..100, wider than barrel
+        
+        Piston height = 16px
+        Stem width = 12px, centered on barrel X
+        Handle (T-bar): 60px wide, 8px tall
+        
+        At 0 ml:   piston top at y=384, handle at y=384 - STEM_LEN - 8
+                   STEM_LEN chosen so handle is just above flange: handleY=84
+                   So STEM_LEN = 384 - 84 - 8 = 292
+        At 120 ml: piston top at y=100 (barrel top)
+                   handleY = 100 - 292 - 8 = -200 → piston would go too high
+        
+        FIX: Make barrel taller or stem shorter. The key insight:
+        In a real syringe, the stem goes THROUGH the flange opening.
+        At 0 ml the stem barely sticks out above the flange.
+        At 120 ml the stem sticks out much more.
+        
+        Better approach: The handle is always above the flange, and the
+        distance between handle and flange GROWS as you pull the piston up.
+        But the distance between piston and handle is FIXED (rigid rod).
+        
+        Let me use a different geometry:
+        - Barrel inner top: y=120
+        - Barrel inner bottom: y=400
+        - Travel range: 280px for 120 ml
+        - At 0 ml: piston at y=384 (16px from bottom)
+        - At 120 ml: piston at y=104 (near top)
+        
+        - Fixed stem length from piston top to handle bottom: 
+          At 0 ml: piston top = 384, handle should be at y≈62 → stem = 322
+          At 120 ml: piston top = 104, handle at 104-322 = -218 ← out of view!
+        
+        SOLUTION: Increase the viewBox height, or use a different approach.
+        
+        Actually the simplest: DON'T move the handle. Extend the viewBox upward.
+        ViewBox = "0 -240 380 780"  → allows handle to go up to y=-232
+        
+        OR: keep the viewBox fixed and just clip the handle as it goes above.
+        The handle going out of view is fine — in real life you'd see the stem
+        sticking out of the barrel, and the handle is what you're pulling.
+        But we should at least see SOME of the stem above the flange.
+        
+        BETTER SOLUTION: Use a scrolling/scaling approach. OR just make the 
+        viewBox tall enough. Let me use a compact design where the barrel
+        is shorter and the handle starts closer to the barrel.
+        
+        SIMPLEST: Make barrel shorter (say 200px travel) and handle close.
+        Barrel inner: y=160..360 (200px)
+        At 0 ml: pistonY=344, handleY=70 → stem=274
+        At 120ml: pistonY=144, handleY=144-274=-130 → still goes up
+        
+        OK let me try a different approach entirely. Instead of a fixed 
+        stem length, I'll have the viewBox dynamically grow, or better:
+        clip the stem/handle above the flange area and just show the part
+        that's visible. The key parts that matter are:
+        1. The barrel with vacuum
+        2. The piston position  
+        3. The seal cap at bottom
+        4. The scale at bottom
+        5. The force arrows
+        
+        The handle going above the visible area is fine.
+      -->
+      <svg id="svgScene" viewBox="0 -95 370 530" class="scene-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="barrelGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#94a3b8" stop-opacity="0.14"/>
+            <stop offset="25%" stop-color="#e2e8f0" stop-opacity="0.25"/>
+            <stop offset="50%" stop-color="#ffffff" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#64748b" stop-opacity="0.18"/>
+          </linearGradient>
+          <linearGradient id="barrelStroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#64748b"/>
+            <stop offset="50%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#64748b"/>
+          </linearGradient>
+          <linearGradient id="rubberGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1e293b"/>
+            <stop offset="40%" stop-color="#0f172a"/>
+            <stop offset="100%" stop-color="#1e293b"/>
+          </linearGradient>
+          <linearGradient id="stemGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#64748b"/>
+            <stop offset="35%" stop-color="#94a3b8"/>
+            <stop offset="65%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#64748b"/>
+          </linearGradient>
+          <linearGradient id="scaleBodyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#475569"/>
+            <stop offset="100%" stop-color="#334155"/>
+          </linearGradient>
+          <pattern id="vacuumDots" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <circle cx="5" cy="5" r="1.3" fill="#38bdf8" opacity="0.25"/>
+          </pattern>
+          <clipPath id="barrelClip">
+            <rect x="152" y="108" width="66" height="184"/>
+          </clipPath>
+        </defs>
+
+        <!-- ===================== SYRINGE ASSEMBLY ===================== -->
+        
+        <!-- Barrel Flange (finger grips at barrel top) -->
+        <rect id="barrelFlange" x="132" y="98" width="106" height="10" rx="3" fill="#94a3b8" stroke="#64748b" stroke-width="1.5"/>
+        
+        <!-- Main Barrel (glass cylinder) -->
+        <rect id="barrelBody" x="150" y="108" width="70" height="184" rx="3" fill="url(#barrelGrad)" stroke="url(#barrelStroke)" stroke-width="2"/>
+        
+        <!-- Graduations on barrel (120 ml at top y=114, 0 ml at bottom y=278) -->
+        <g id="graduations" opacity="0.8">
+          <!-- Major ticks every 20 ml -->
+          <line x1="150" y1="114" x2="164" y2="114" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="118" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">120</text>
+          <line x1="150" y1="141" x2="164" y2="141" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="145" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">100</text>
+          <line x1="150" y1="169" x2="164" y2="169" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="173" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">80</text>
+          <line x1="150" y1="196" x2="164" y2="196" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="200" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">60</text>
+          <line x1="150" y1="223" x2="164" y2="223" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="227" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">40</text>
+          <line x1="150" y1="251" x2="164" y2="251" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="255" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">20</text>
+          <line x1="150" y1="278" x2="164" y2="278" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="142" y="282" font-size="9" fill="#94a3b8" font-family="JetBrains Mono" text-anchor="end">0</text>
+          <!-- Minor ticks every 10 ml -->
+          <line x1="150" y1="127.5" x2="158" y2="127.5" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+          <line x1="150" y1="155" x2="158" y2="155" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+          <line x1="150" y1="182.5" x2="158" y2="182.5" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+          <line x1="150" y1="210" x2="158" y2="210" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+          <line x1="150" y1="237" x2="158" y2="237" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+          <line x1="150" y1="264.5" x2="158" y2="264.5" stroke="#94a3b8" stroke-width="1" opacity="0.6"/>
+        </g>
+
+        <!-- Vacuum Zone (inside barrel, between piston bottom and sealed tip) -->
+        <rect id="vacuumBg" x="152" y="290" width="66" height="0" fill="#0c4a6e" fill-opacity="0.12" rx="1"/>
+        <rect id="vacuumDotLayer" x="152" y="290" width="66" height="0" fill="url(#vacuumDots)" rx="1"/>
+        <rect id="vacuumBorder" x="152" y="290" width="66" height="0" fill="none" stroke="#0284c7" stroke-dasharray="4,3" stroke-width="1.2" rx="1"/>
+        <!-- Vacuum label (centered in vacuum zone) -->
+        <g id="vacuumLabel" opacity="0">
+          <text id="vacuumText" x="185" y="200" font-size="12" fill="#38bdf8" font-weight="800" text-anchor="middle" letter-spacing="2" font-family="Inter">VAKUUM</text>
+          <text id="vacuumSubtext" x="185" y="214" font-size="8.5" fill="#7dd3fc" text-anchor="middle" font-family="Inter">keine Luft</text>
+        </g>
+
+        <!-- Rubber Piston (moves up/down inside barrel) -->
+        <rect id="rubberPiston" x="152" y="274" width="66" height="16" rx="2" fill="url(#rubberGrad)" stroke="#0f172a" stroke-width="1"/>
+        <line id="pistonRing1" x1="154" y1="279" x2="216" y2="279" stroke="#334155" stroke-width="1.5"/>
+        <line id="pistonRing2" x1="154" y1="285" x2="216" y2="285" stroke="#334155" stroke-width="1.5"/>
+
+        <!-- Plunger Stem (rod from piston up through flange hole) -->
+        <rect id="plungerStem" x="179" y="82" width="12" height="182" fill="url(#stemGrad)" stroke="#475569" stroke-width="0.8"/>
+        <line id="stemHighlight" x1="185" y1="82" x2="185" y2="274" stroke="#cbd5e1" stroke-width="1" opacity="0.4"/>
+
+        <!-- Plunger Handle (T-bar, above flange) -->
+        <rect id="thumbRest" x="147" y="82" width="76" height="10" rx="4" fill="#64748b" stroke="#475569" stroke-width="1.5"/>
+
+        <!-- Invisible larger drag hit zone around handle -->
+        <rect id="dragZone" x="135" y="70" width="100" height="34" rx="6" fill="transparent" stroke="none"/>
+
+        <!-- Drag handle glow (shown on hover) -->
+        <rect id="handleGlow" x="143" y="79" width="84" height="16" rx="6" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0" style="pointer-events:none;"/>
+
+        <!-- Drag Hint (arrow + text, disappears after first drag) -->
+        <g id="dragHint" opacity="1" style="pointer-events:none;">
+          <text x="235" y="86" font-size="16" fill="#38bdf8" font-weight="700" text-anchor="start" font-family="Inter" opacity="0.8">↕</text>
+          <text x="251" y="89" font-size="10" fill="#94a3b8" font-weight="600" font-family="Inter">ziehen</text>
+        </g>
+
+        <!-- Barrel Cone (taper at bottom, below barrel) -->
+        <polygon points="150,292 220,292 191,312 179,312" fill="url(#barrelGrad)" stroke="url(#barrelStroke)" stroke-width="1.5" stroke-linejoin="round"/>
+
+        <!-- Tip / Nozzle -->
+        <rect x="180" y="312" width="10" height="14" rx="1.5" fill="#94a3b8" stroke="#64748b" stroke-width="1"/>
+
+        <!-- SEALED CAP (Verschlusskappe) -->
+        <g id="sealCap">
+          <rect x="168" y="326" width="34" height="18" rx="4" fill="#ef4444" stroke="#b91c1c" stroke-width="1.5"/>
+          <line x1="174" y1="333" x2="196" y2="333" stroke="#fca5a5" stroke-width="2" stroke-linecap="round"/>
+          <text x="185" y="355" font-size="9.5" fill="#f87171" font-weight="700" text-anchor="middle" font-family="Inter">VERSCHLOSSEN</text>
+        </g>
+
+        <!-- ===================== SCALE PLATFORM ===================== -->
+        <!-- Scale top plate -->
+        <rect x="125" y="364" width="120" height="7" rx="2" fill="#64748b"/>
+        <!-- Scale pillar -->
+        <rect x="177" y="371" width="16" height="10" fill="#475569" rx="2"/>
+        <!-- Scale body -->
+        <rect x="135" y="381" width="100" height="30" rx="6" fill="url(#scaleBodyGrad)" stroke="#334155" stroke-width="1.5"/>
+        <!-- Scale display window -->
+        <rect x="145" y="386" width="80" height="18" rx="3" fill="#0d1410" stroke="#1e293b" stroke-width="1"/>
+        <text id="scaleInlineMass" x="218" y="400" font-size="12" fill="#fbbf24" font-weight="700" text-anchor="end" font-family="JetBrains Mono">45.000 g</text>
+        <!-- Scale feet -->
+        <circle cx="148" cy="414" r="3" fill="#334155"/>
+        <circle cx="222" cy="414" r="3" fill="#334155"/>
+
+        <!-- ===================== FORCE ARROWS ===================== -->
+        <!-- F_G (Gewichtskraft) - right side, pointing DOWN -->
+        <g id="forceGravity">
+          <line id="arrowFG" x1="280" y1="165" x2="280" y2="275" stroke="#f43f5e" stroke-width="4.5" stroke-linecap="round"/>
+          <polygon id="arrowFGHead" points="280,282 274,270 286,270" fill="#f43f5e"/>
+          <text id="lblFG" x="295" y="210" fill="#f43f5e" font-size="15" font-weight="800" font-family="Inter">
+            F<tspan font-size="11" dy="3">G</tspan>
+          </text>
+          <text id="lblFGVal" x="295" y="230" fill="#fb7185" font-size="11.5" font-weight="600" font-family="JetBrains Mono">0.4415 N</text>
+        </g>
+
+        <!-- F_A (Auftriebskraft) - left side, pointing UP -->
+        <g id="forceBuoyancy">
+          <line id="arrowFA" x1="90" y1="275" x2="90" y2="250" stroke="#22d3ee" stroke-width="4.5" stroke-linecap="round"/>
+          <polygon id="arrowFAHead" points="90,243 84,255 96,255" fill="#22d3ee"/>
+          <text id="lblFA" x="52" y="265" fill="#22d3ee" font-size="15" font-weight="800" font-family="Inter" text-anchor="end">
+            F<tspan font-size="11" dy="3">A</tspan>
+          </text>
+          <text id="lblFAVal" x="52" y="248" fill="#67e8f9" font-size="11.5" font-weight="600" font-family="JetBrains Mono" text-anchor="end">0.0004 N</text>
+        </g>
+
+        <!-- Note about scale -->
+        <text x="90" y="295" fill="#475569" font-size="8" font-family="Inter" text-anchor="middle" font-style="italic">
+          (F<tspan font-size="6.5" dy="1.5">A</tspan><tspan dy="-1.5"> vergrößert)</tspan>
+        </text>
+
+        <!-- Volume Badge (appears next to barrel) -->
+        <g id="volumeBadge">
+          <rect id="volBadgeBg" x="225" y="271" width="70" height="22" rx="11" fill="#0c1a2e" stroke="#1e3a5f" stroke-width="1.2"/>
+          <text id="volumeBadgeText" x="260" y="286" font-size="11.5" fill="#38bdf8" font-weight="700" text-anchor="middle" font-family="JetBrains Mono">0 ml</text>
+        </g>
+
+      </svg>
+    </div>
+
+    <!-- Right Side Panel: Scale Display, Explanation, Conditions -->
+    <div class="side-panel">
+
+      <!-- Scale Digital Display -->
+      <div class="scale-display">
+        <div class="scale-top-row">
+          <div class="scale-badge">
+            <span class="dot"></span>
+            <span>Präzisionswaage</span>
+          </div>
+          <button id="tareBtn" class="tare-btn">→0/T← Tara</button>
+        </div>
+        <div class="scale-mass">
+          <span id="massDisplay" class="scale-mass-value">45.0000</span>
+          <span id="massUnit" class="scale-mass-unit">g</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Verdrängtes Gesamtvolumen</span>
+            <span id="displacedVol" class="metric-value">32.0 ml</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Masse verdrängter Luft</span>
+            <span id="displacedMass" class="metric-value">38.5 mg</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Auftriebskraft F<sub>A</sub></span>
+            <span id="buoyancyForceVal" class="metric-value">0.38 mN</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Massenabnahme durch Vakuum</span>
+            <span id="buoyancyLossVal" class="metric-value" style="color: #f87171;">-0.0 mg</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation Box -->
+      <div class="explanation">
+        <h2><span class="icon">💡</span> Warum wird die Spritze leichter?</h2>
+        <p>
+          Die Spritze steht in <strong>Luft</strong>. Nach Archimedes erfährt jeder Körper darin eine 
+          <span class="highlight">Auftriebskraft F<sub>A</sub></span>, die nach oben wirkt und der Gewichtskraft entgegensteht.
+          Beim Herausziehen des Stempels entsteht im Inneren ein <strong>Vakuum</strong> (keine Materie).
+          Das äußere Volumen vergrößert sich jedoch, wodurch mehr Luft verdrängt wird: 
+          Der Auftrieb steigt – und die Waage zeigt <span class="highlight-red">weniger Masse</span> an.
+        </p>
+        <div class="formula-box">
+          <div class="formula-math">Δm = - ρ<sub>Luft</sub> · V<sub>Vakuum</sub> ≈ - 1,20 mg / ml</div>
+          <div class="formula-live">
+            <span>Aktives Vakuum: <strong id="liveVacVol" style="color:#38bdf8;">0 ml</strong></span>
+            <span>Auftriebszuwachs: <strong id="liveMassDrop" style="color:#f87171;">+0.0 mg</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conditions footer -->
+      <div class="conditions">
+        Standardbedingungen: 1013,25 hPa · 20,0 °C · ρ<sub>Luft</sub> = 1,2041 kg/m³ · g = 9,80665 m/s²
+      </div>
+
+    </div><!-- /.side-panel -->
+
+  </div><!-- /.main-layout -->
+
+</div><!-- /.container -->
+
+  <script>
+    // ============================================================
+    // PHYSICAL CONSTANTS
+    // ============================================================
+    const BASE_MASS_G     = 45.0385;  // True mass of syringe in grams
+    const SHELL_VOL_ML    = 32.0;     // Volume of solid material in ml
+    const RHO_KG_M3       = 1.2041;   // Air density at 1013.25 hPa, 20°C
+    const RHO_G_PER_ML    = RHO_KG_M3 * 0.001;  // = 0.0012041 g/ml
+    const G_ACC           = 9.80665;  // m/s²
+    const MAX_VOL         = 120;      // ml
+
+    // ============================================================
+    // SVG GEOMETRY CONSTANTS (compact, scaled-up syringe)
+    // ============================================================
+    // Barrel interior spans y=110 to y=290 (180 px total, 164 px travel for 120 ml)
+    const PISTON_H        = 16;
+    const BARREL_INNER_TOP = 110;
+    const BARREL_INNER_BOT = 290;
+    const PISTON_TRAVEL    = BARREL_INNER_BOT - PISTON_H - BARREL_INNER_TOP; // = 164
+
+    // Stem: rigid rod from piston top to handle bottom
+    // At 0 ml: piston top = 274, handle bottom = 92 → stem = 182
+    const STEM_LENGTH = (BARREL_INNER_BOT - PISTON_H) - 92; // = 182
+
+    // Arrow geometry
+    const FG_ARROW_X = 280;
+    const FA_ARROW_X = 90;
+    const ARROW_BOTTOM_Y = 275;
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let currentVolume = 0;
+    let tareOffset = 0;
+    let isTared = false;
+    let isDragging = false;
+    let dragStarted = false;
+
+    // ============================================================
+    // DOM REFERENCES
+    // ============================================================
+    const svgScene         = document.getElementById('svgScene');
+    const sceneCard        = document.querySelector('.scene-card');
+    const massDisplay      = document.getElementById('massDisplay');
+    const massUnit         = document.getElementById('massUnit');
+    const tareBtn          = document.getElementById('tareBtn');
+    const displacedVol     = document.getElementById('displacedVol');
+    const displacedMass    = document.getElementById('displacedMass');
+    const buoyancyForceVal = document.getElementById('buoyancyForceVal');
+    const buoyancyLossVal  = document.getElementById('buoyancyLossVal');
+    const liveVacVol       = document.getElementById('liveVacVol');
+    const liveMassDrop     = document.getElementById('liveMassDrop');
+    const scaleInlineMass  = document.getElementById('scaleInlineMass');
+
+    // SVG elements
+    const thumbRest       = document.getElementById('thumbRest');
+    const plungerStem     = document.getElementById('plungerStem');
+    const stemHighlight   = document.getElementById('stemHighlight');
+    const rubberPiston    = document.getElementById('rubberPiston');
+    const pistonRing1     = document.getElementById('pistonRing1');
+    const pistonRing2     = document.getElementById('pistonRing2');
+    const vacuumBg        = document.getElementById('vacuumBg');
+    const vacuumDotLayer  = document.getElementById('vacuumDotLayer');
+    const vacuumBorder    = document.getElementById('vacuumBorder');
+    const vacuumLabel     = document.getElementById('vacuumLabel');
+    const vacuumText      = document.getElementById('vacuumText');
+    const vacuumSubtext   = document.getElementById('vacuumSubtext');
+    const volumeBadge     = document.getElementById('volumeBadge');
+    const volumeBadgeText = document.getElementById('volumeBadgeText');
+    const volBadgeBg      = document.getElementById('volBadgeBg');
+    const dragZone        = document.getElementById('dragZone');
+    const handleGlow      = document.getElementById('handleGlow');
+    const dragHint        = document.getElementById('dragHint');
+
+    const arrowFG         = document.getElementById('arrowFG');
+    const arrowFGHead     = document.getElementById('arrowFGHead');
+    const lblFG           = document.getElementById('lblFG');
+    const lblFGVal        = document.getElementById('lblFGVal');
+    const arrowFA         = document.getElementById('arrowFA');
+    const arrowFAHead     = document.getElementById('arrowFAHead');
+    const lblFA           = document.getElementById('lblFA');
+    const lblFAVal        = document.getElementById('lblFAVal');
+
+    // ============================================================
+    // UPDATE
+    // ============================================================
+    function update() {
+      const vol = currentVolume;
+      const ratio = vol / MAX_VOL;
+
+      // --- Physics ---
+      const totalVol = SHELL_VOL_ML + vol;              // total displaced volume (ml)
+      const FA_g     = totalVol * RHO_G_PER_ML;         // buoyancy in gram-equivalents
+      const apparent = BASE_MASS_G - FA_g;               // apparent mass on scale
+
+      const FG_N = (BASE_MASS_G / 1000) * G_ACC;        // weight force in N
+      const FA_N = (totalVol / 1e6) * RHO_KG_M3 * G_ACC; // buoyancy force in N
+
+      // --- Display ---
+      let displayMass = isTared ? (apparent - tareOffset) : apparent;
+
+      massDisplay.textContent = displayMass.toFixed(4);
+      massDisplay.className   = 'scale-mass-value' + (isTared ? ' tared' : '');
+      massUnit.className      = 'scale-mass-unit' + (isTared ? ' tared' : '');
+
+      displacedVol.textContent  = totalVol.toFixed(1) + ' ml';
+      displacedMass.textContent = (FA_g * 1000).toFixed(1) + ' mg';
+
+      const FA_mN = FA_N * 1000;
+      if (buoyancyForceVal) buoyancyForceVal.textContent = FA_mN.toFixed(2) + ' mN';
+      const vacLoss_mg = vol * RHO_G_PER_ML * 1000;
+      if (buoyancyLossVal) buoyancyLossVal.textContent = '-' + vacLoss_mg.toFixed(1) + ' mg';
+      if (liveVacVol) liveVacVol.textContent = vol + ' ml';
+      if (liveMassDrop) liveMassDrop.textContent = '+' + vacLoss_mg.toFixed(1) + ' mg';
+
+      scaleInlineMass.textContent = displayMass.toFixed(3) + ' g';
+      scaleInlineMass.setAttribute('fill', isTared ? '#22d3ee' : '#fbbf24');
+
+      volumeBadgeText.textContent = vol + ' ml';
+
+      // Force labels
+      lblFGVal.textContent = FG_N.toFixed(4) + ' N';
+      lblFAVal.textContent = FA_N.toFixed(4) + ' N';
+
+      // --- Syringe Graphic ---
+      const pistonTopY = BARREL_INNER_BOT - PISTON_H - ratio * PISTON_TRAVEL;
+
+      // Rubber piston
+      rubberPiston.setAttribute('y', pistonTopY);
+      pistonRing1.setAttribute('y1', pistonTopY + 5);
+      pistonRing1.setAttribute('y2', pistonTopY + 5);
+      pistonRing2.setAttribute('y1', pistonTopY + 11);
+      pistonRing2.setAttribute('y2', pistonTopY + 11);
+
+      // Handle: fixed distance from piston top (rigid stem)
+      const handleY = pistonTopY - STEM_LENGTH - 10; // 10 = handle height
+      thumbRest.setAttribute('y', handleY);
+
+      // Move drag hit zone, glow, and hint to follow handle
+      dragZone.setAttribute('y', handleY - 12);
+      handleGlow.setAttribute('y', handleY - 3);
+      if (!dragStarted && dragHint) {
+        dragHint.querySelector('text').setAttribute('y', handleY + 4);
+        dragHint.querySelectorAll('text')[1].setAttribute('y', handleY + 8);
+      }
+
+      // Stem: from handle bottom to piston top
+      const stemTopY = handleY + 10;
+      plungerStem.setAttribute('y', stemTopY);
+      plungerStem.setAttribute('height', Math.max(0, pistonTopY - stemTopY));
+      stemHighlight.setAttribute('y1', stemTopY);
+      stemHighlight.setAttribute('y2', pistonTopY);
+
+      // Vacuum zone: from piston BOTTOM down to barrel bottom (sealed tip)
+      const vacTop = pistonTopY + PISTON_H; // bottom edge of piston
+      const vacHeight = Math.max(0, BARREL_INNER_BOT - vacTop);
+      vacuumBg.setAttribute('y', vacTop);
+      vacuumBg.setAttribute('height', vacHeight);
+      vacuumDotLayer.setAttribute('y', vacTop);
+      vacuumDotLayer.setAttribute('height', vacHeight);
+      vacuumBorder.setAttribute('y', vacTop);
+      vacuumBorder.setAttribute('height', vacHeight);
+
+      // Vacuum opacity intensifies with volume
+      vacuumBg.setAttribute('fill-opacity', 0.08 + ratio * 0.16);
+
+      // Vacuum label (centered in vacuum zone below piston)
+      if (vol > 15 && vacHeight > 30) {
+        vacuumLabel.setAttribute('opacity', '1');
+        const labelY = vacTop + vacHeight / 2;
+        vacuumText.setAttribute('y', labelY - 2);
+        vacuumSubtext.setAttribute('y', labelY + 12);
+      } else {
+        vacuumLabel.setAttribute('opacity', '0');
+      }
+
+      // Volume badge position (next to piston)
+      const badgeY = pistonTopY - 3;
+      volBadgeBg.setAttribute('y', badgeY);
+      volumeBadgeText.setAttribute('y', badgeY + 15);
+
+      // --- Force Arrows ---
+      // F_G: constant length reference (110 px)
+      const FG_LEN = 110;
+      const fgTopY = ARROW_BOTTOM_Y - FG_LEN;
+      arrowFG.setAttribute('y1', fgTopY);
+      arrowFG.setAttribute('y2', ARROW_BOTTOM_Y);
+      arrowFGHead.setAttribute('points', 
+        `${FG_ARROW_X},${ARROW_BOTTOM_Y + 7} ${FG_ARROW_X - 6},${ARROW_BOTTOM_Y - 5} ${FG_ARROW_X + 6},${ARROW_BOTTOM_Y - 5}`);
+      lblFG.setAttribute('y', fgTopY + FG_LEN * 0.4);
+      lblFGVal.setAttribute('y', fgTopY + FG_LEN * 0.4 + 18);
+
+      // F_A: scaled proportionally
+      const FA_SCALE = 38000;
+      const faLen = Math.max(14, FA_N * FA_SCALE);
+      const faBottomY = ARROW_BOTTOM_Y;
+      const faTopY = faBottomY - faLen;
+
+      arrowFA.setAttribute('y1', faBottomY);
+      arrowFA.setAttribute('y2', faTopY);
+      arrowFAHead.setAttribute('points',
+        `${FA_ARROW_X},${faTopY - 7} ${FA_ARROW_X - 6},${faTopY + 5} ${FA_ARROW_X + 6},${faTopY + 5}`);
+
+      const faMidY = (faBottomY + faTopY) / 2;
+      lblFA.setAttribute('y', faMidY + 4);
+      lblFAVal.setAttribute('y', faMidY - 14);
+    }
+
+    // ============================================================
+    // DRAG INTERACTION ON PLUNGER HANDLE
+    // ============================================================
+
+    // Convert screen/client coordinates to SVG coordinate space
+    function clientYToSvgY(clientY) {
+      const pt = svgScene.createSVGPoint();
+      pt.x = 0;
+      pt.y = clientY;
+      const svgPt = pt.matrixTransform(svgScene.getScreenCTM().inverse());
+      return svgPt.y;
+    }
+
+    // Convert SVG Y of handle center to volume (0-120)
+    function handleYToVolume(svgY) {
+      // handleY at 0 ml = 82, handleY at 120 ml = -82
+      // handleCenterAt0   = 87
+      // handleCenterAt120 = -77
+      const hCenter0   = (BARREL_INNER_BOT - PISTON_H) - STEM_LENGTH - 10 + 5; // = 87
+      const hCenter120 = (BARREL_INNER_BOT - PISTON_H - PISTON_TRAVEL) - STEM_LENGTH - 10 + 5; // = -77
+      const ratio = (hCenter0 - svgY) / (hCenter0 - hCenter120);
+      return Math.round(Math.max(0, Math.min(MAX_VOL, ratio * MAX_VOL)));
+    }
+
+    function onDragStart(e) {
+      e.preventDefault();
+      isDragging = true;
+      sceneCard.classList.add('dragging');
+      // Hide drag hint after first interaction
+      if (!dragStarted) {
+        dragStarted = true;
+        dragHint.setAttribute('opacity', '0');
+      }
+    }
+
+    function onDragMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const svgY = clientYToSvgY(clientY);
+      currentVolume = handleYToVolume(svgY);
+      update();
+    }
+
+    function onDragEnd() {
+      isDragging = false;
+      sceneCard.classList.remove('dragging');
+    }
+
+    // Mouse events
+    dragZone.addEventListener('mousedown', onDragStart);
+    window.addEventListener('mousemove', onDragMove);
+    window.addEventListener('mouseup', onDragEnd);
+
+    // Touch events
+    dragZone.addEventListener('touchstart', onDragStart, { passive: false });
+    window.addEventListener('touchmove', onDragMove, { passive: false });
+    window.addEventListener('touchend', onDragEnd);
+
+    // Hover glow on handle
+    dragZone.addEventListener('mouseenter', () => {
+      if (!isDragging) handleGlow.setAttribute('opacity', '0.6');
+    });
+    dragZone.addEventListener('mouseleave', () => {
+      if (!isDragging) handleGlow.setAttribute('opacity', '0');
+    });
+
+    tareBtn.addEventListener('click', () => {
+      if (isTared) {
+        isTared = false;
+        tareOffset = 0;
+        tareBtn.classList.remove('active');
+        tareBtn.textContent = '→0/T← Tara';
+      } else {
+        const totalVol = SHELL_VOL_ML + currentVolume;
+        const FA_g = totalVol * RHO_G_PER_ML;
+        tareOffset = BASE_MASS_G - FA_g;
+        isTared = true;
+        tareBtn.classList.add('active');
+        tareBtn.textContent = '✕ Tara aufheben';
+      }
+      update();
+    });
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    update();
+  </script>
+</body>
+</html>
